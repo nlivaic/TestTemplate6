@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# This file does two things:
+# 1. Checks whether the branch names conform to a convention: "feature/" or "fix/"
+# 2. Uses the branch name to append a suffix to each commit message made,
+#    so GitVersion can deduce appropriate Semantic Version:
+#       * "feature/" branch gets a suffix saying GitVersion should bump minor version.
+#       * "fix/" branch gets a suffix saying GitVersion should bump patch version.
+
+local_branch="$(git rev-parse --abbrev-ref HEAD)"
+
+valid_branch_regex="^(feature|fix)\/[a-zA-Z0-9._-]+$"
+message="There is something wrong with your branch name. Branch names in this project must adhere to this contract: $valid_branch_regex. Your commit will be rejected. You should rename your branch to a valid name and try again."
+
+if [[ ! $local_branch =~ $valid_branch_regex ]]
+then
+    echo "$message"
+    exit 1
+fi
+
+BRANCH_PREFIX=$(git rev-parse --abbrev-ref HEAD 2> /dev/null | grep -oE "[a-z]+[/]")
+
+if [ "$BRANCH_PREFIX" = "feature/" ]; then
+    sed -i.bak -e "1s/$/ [+semver: minor] /" $1
+fi
+
+if [ "$BRANCH_PREFIX" = "fix/" ]; then
+    sed -i.bak -e "1s/$/ [+semver: patch] /" $1
+fi

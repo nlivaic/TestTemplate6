@@ -1,0 +1,138 @@
+trigger:
+  branches:
+    include:
+    - master
+
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+# Versioning source: https://stackoverflow.com/a/60609868/987827
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+- stage: build
+  jobs:
+    - job: Build_Test_UploadArtifact
+      steps:
+        - checkout: self
+          fetchDepth: 0
+
+        - script: echo $(version)
+          displayName: 'Basic Information - Version'
+          
+        - script: echo $(Build.ArtifactStagingDirectory)
+          displayName: 'Basic Information - ArtifactStagingDirectory'
+          
+        - script: pwd
+          displayName: 'Basic Information - Current Directory'
+          
+        - script: ls -al
+          displayName: 'Basic Information - Directory Contents'
+
+        - task: gitversion/setup@0
+          displayName: Install GitVersion
+          inputs:
+            versionSpec: '5.x'
+          
+        - task: gitversion/execute@0
+          displayName: Determine Version
+          name: determine_version
+          inputs:
+            useConfigFile: true
+            configFilePath: 'GitVersion.yml'
+
+        - script: |
+            echo Major: $(GitVersion.Major)
+            echo Minor: $(GitVersion.Minor)
+            echo Patch: $(GitVersion.Patch)
+            echo PreReleaseTag: $(GitVersion.PreReleaseTag)
+            echo PreReleaseLabel: $(GitVersion.PreReleaseLabel)
+            echo PreReleaseNumber: $(GitVersion.PreReleaseNumber)
+            echo WeightedPreReleaseNumber: $(GitVersion.WeightedPreReleaseNumber)
+            echo BuildMetaData: $(GitVersion.BuildMetaData)
+            echo BuildMetaDataPadded: $(GitVersion.BuildMetaDataPadded)
+            echo FullBuildMetaData: $(GitVersion.FullBuildMetaData)
+            echo MajorMinorPatch: $(GitVersion.MajorMinorPatch)
+            echo SemVer: $(GitVersion.SemVer)
+            echo LegacySemVer: $(GitVersion.LegacySemVer)
+            echo LegacySemVerPadded: $(GitVersion.LegacySemVerPadded)
+            echo AssemblySemVer: $(GitVersion.AssemblySemVer)
+            echo AssemblySemFileVer: $(GitVersion.AssemblySemFileVer)
+            echo FullSemVer: $(GitVersion.FullSemVer)
+            echo InformationalVersion: $(GitVersion.InformationalVersion)
+            echo BranchName: $(GitVersion.BranchName)
+            echo EscapedBranchName: $(GitVersion.EscapedBranchName)
+            echo Sha: $(GitVersion.Sha)
+            echo ShortSha: $(GitVersion.ShortSha)
+            echo NuGetVersionV2: $(GitVersion.NuGetVersionV2)
+            echo NuGetVersion: $(GitVersion.NuGetVersion)
+            echo NuGetPreReleaseTagV2: $(GitVersion.NuGetPreReleaseTagV2)
+            echo NuGetPreReleaseTag: $(GitVersion.NuGetPreReleaseTag)
+            echo VersionSourceSha: $(GitVersion.VersionSourceSha)
+            echo CommitsSinceVersionSource: $(GitVersion.CommitsSinceVersionSource)
+            echo CommitsSinceVersionSourcePadded: $(GitVersion.CommitsSinceVersionSourcePadded)
+            echo UncommittedChanges: $(GitVersion.UncommittedChanges)
+            echo CommitDate: $(GitVersion.CommitDate)
+          displayName: Current Version $(GitVersion.FullSemVer)
+
+        - script: dotnet build --configuration $(buildConfiguration) ./TestTemplate6.sln
+          displayName: 'dotnet build $(buildConfiguration)'
+
+        - task: DotNetCoreCLI@2
+          displayName: 'dotnet test'
+          inputs:
+            command: 'test'
+            projects: '**/*.csproj'
+            publishTestResults: true
+            configuration: $(buildConfiguration)
+
+        - task: DotNetCoreCLI@2
+          displayName: 'dotnet publish TestTemplate6.Api'
+          inputs:
+            command: publish
+            arguments: '-o $(Build.ArtifactStagingDirectory)/TestTemplate6.Api -c $(buildConfiguration)'
+            workingDirectory: './src/TestTemplate6.Api/'
+            zipAfterPublish: true
+            publishWebProjects: false
+
+        - task: DotNetCoreCLI@2
+          displayName: 'dotnet publish TestTemplate6.WorkerServices'
+          inputs:
+            command: publish
+            arguments: '-o $(Build.ArtifactStagingDirectory)/TestTemplate6.WorkerServices -c $(buildConfiguration)'
+            workingDirectory: './src/TestTemplate6.WorkerServices/'
+            zipAfterPublish: true
+            publishWebProjects: false
+
+        - task: DotNetCoreCLI@2
+          displayName: 'dotnet publish TestTemplate6.Migrations'
+          inputs:
+            command: publish
+            arguments: '-o $(Build.ArtifactStagingDirectory)/TestTemplate6.Migrations -c $(buildConfiguration)'
+            workingDirectory: './src/TestTemplate6.Migrations/'
+            zipAfterPublish: false
+            publishWebProjects: false
+
+        - task: PublishPipelineArtifact@1
+          displayName: 'Publish artifacts TestTemplate6.Api'
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/TestTemplate6.Api'
+            artifactName: 'drop.TestTemplate6.Api'
+            publishLocation: pipeline
+
+        - task: PublishPipelineArtifact@1
+          displayName: 'Publish artifacts TestTemplate6.WorkerServices'
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/TestTemplate6.WorkerServices'
+            artifactName: 'drop.TestTemplate6.WorkerServices'
+            publishLocation: pipeline
+
+        - task: PublishPipelineArtifact@1
+          displayName: 'Publish artifacts TestTemplate6.Migrations'
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/TestTemplate6.Migrations'
+            artifactName: 'drop.TestTemplate6.Migrations'
+            publishLocation: pipeline

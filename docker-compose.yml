@@ -1,0 +1,102 @@
+version: '3.7'
+
+volumes:
+  data:
+  log:
+  secrets:
+
+services:
+  reverseproxy:
+    ports:
+      - "44395:44395"
+    build:
+      context: .
+      # NOTE!!!
+      # Even though we keep nginx.Dockerfile inside /nginx solution folder,
+      # docker-compose tool is not aware of it since it is only a Visual Studio construct.
+      # On the filesystem nginx.Dockerfile is on the same level as docker-compose.yml
+      dockerfile: nginx/nginx.Dockerfile
+    networks:
+      testtemplate6net:
+        aliases:
+          - "api-local.testtemplate6.com"
+  testtemplate6.api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+    env_file: .env
+    #ports:
+    #  - "5000:5000"
+    build:
+      context: .
+      dockerfile: src/TestTemplate6.Api/Dockerfile
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    networks:
+      - testtemplate6net
+  testtemplate6.sql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: ${DB_ADMIN_PASSWORD}
+      MSSQL_PID: Standard
+    user: root
+    ports:
+      - "1433:1433"
+    expose:
+      - "1433"
+    volumes:
+      - ./sql:/scripts/
+      - data:/var/opt/mssql/data
+      - log:/var/opt/mssql/log
+      - secrets:/var/opt/mssql/secrets
+    command:
+      - /bin/bash
+      - -c
+      - |
+        # Launch MSSQL and send to background
+        /opt/mssql/bin/sqlservr &
+        # Wait 30 seconds for it to be available
+        # (lame, I know, but there's no nc available to start prodding network ports)
+        sleep 30
+        # Run every script in /scripts
+        # TODO set a flag so that this is only done once on creation,
+        #      and not every time the container runs
+        cd scripts
+        for original_script in *.sql
+          do sed -e "s/<DB_PASSWORD>/$DB_PASSWORD/g" $$original_script > ../etc/$$original_script
+        done
+        for bound_script in /etc/*.sql
+          do /opt/mssql-tools/bin/sqlcmd -U sa -P $$SA_PASSWORD -l 30 -e -i $$bound_script
+        done
+        # So that the container doesn't shut down, sleep this thread
+        sleep infinity
+    networks:
+      - testtemplate6net
+  # Comment the below service back in if you want
+  # migrations to happen on docker-compose up.
+  # Don't forget to update Migrations project's connection strings.
+  #testtemplate6.migrations:
+  #  image: ${DOCKER_REGISTRY-}testtemplate6sql
+  #  depends_on:
+  #    - testtemplate6.sql
+  #  build:
+  #    context: .
+  #    dockerfile: src/TestTemplate6.Migrations/Dockerfile
+  #  networks:
+  #    - testtemplate6net
+  testtemplate6.workerservices:
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+    image: ${DOCKER_REGISTRY-}testtemplate6workerservices
+    env_file: .env
+    depends_on:
+      - testtemplate6.sql
+    build:
+      context: .
+      dockerfile: src/TestTemplate6.WorkerServices/Dockerfile
+    networks:
+      - testtemplate6net
+networks:
+  testtemplate6net: {}
