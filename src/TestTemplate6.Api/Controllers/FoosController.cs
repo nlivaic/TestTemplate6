@@ -33,7 +33,7 @@ namespace TestTemplate6.Api.Controllers
         /// <returns>Foo data.</returns>
         [ProducesResponseType(StatusCodes.Status200OK)]
         [Produces("application/json")]
-        [HttpGet("{id}", Name = "GetFoo")]
+        [HttpGet("{id}", Name = "GetFoo1")]
         public async Task<ActionResult<FooGetModel>> GetAsync([FromRoute] GetFooQuery getFooQuery)
         {
             var foo = await _sender.Send(getFooQuery);
@@ -56,7 +56,7 @@ namespace TestTemplate6.Api.Controllers
         {
             var foo = await _sender.Send(createFooCommand);
             var response = _mapper.Map<FooGetModel>(foo);
-            return CreatedAtRoute("GetFoo", new { id = foo.Id }, response);
+            return CreatedAtRoute("GetFoo1", new { id = foo.Id }, response);
         }
 
         /// <summary>
