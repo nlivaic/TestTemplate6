@@ -1,0 +1,107 @@
+trigger: none
+pr: none
+
+# Pipeline resource defined as per https://bit.ly/3PhwhRk
+resources:
+  pipelines:
+  - pipeline: build_pipeline        # Used to reference the pipeline reference from other parts of the code.
+    source: build_pipeline  	# This must match  the build pipeline name in ADO.
+                                    # By default, pipelines are named after the ADO build pipeline name.
+    trigger:
+      branches:
+      - master                      # Will get triggered whenever the source pipeline runs on master branch.
+
+jobs:
+- deployment: testtemplate6_deploy_to_appservice
+  displayName: TestTemplate6 Deploy to AppService
+  environment: production
+  variables:
+    adoProject: 'TestTemplate6_ADO_Project'
+    azureServiceConnection: 'AzureConnection_TestTemplate6'
+  pool:
+    vmImage: 'ubuntu-latest'
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - checkout: self
+          fetchDepth: 0
+
+        - script: pwd
+          displayName: 'Basic Information - pwd'
+
+        - script: ls -al
+          displayName: 'Basic Information - Directory Contents'
+
+        - task: PowerShell@2
+          displayName: 'Create version number'
+          name: 'CreateVersionNumber'
+          inputs:
+            targetType: 'inline'
+            script: |
+              $newVersion = "$(resources.pipeline.build_pipeline.runName)"
+              [string] $buildName = "$($newVersion)"
+              Write-Host "##vso[build.updatebuildnumber]$buildName"
+
+        - download: none
+
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download Artifact TestTemplate6.Api'
+          inputs:
+            buildType: 'specific'
+            definition: build_pipeline
+            buildVersionToDownload: 'latest'
+            artifactName: 'drop.TestTemplate6.Api'
+            project: '$(adoProject)'
+            downloadPath: '$(Pipeline.Workspace)/drop/TestTemplate6.Api'
+
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download Artifact TestTemplate6.WorkerServices'
+          inputs:
+            buildType: 'specific'
+            definition: build_pipeline
+            buildVersionToDownload: 'latest'
+            artifactName: 'drop.TestTemplate6.WorkerServices'
+            project: '$(adoProject)'
+            downloadPath: '$(Pipeline.Workspace)/drop/TestTemplate6.WorkerServices'
+
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download Artifact TestTemplate6.Migrations'
+          inputs:
+            buildType: 'specific'
+            definition: build_pipeline
+            buildVersionToDownload: 'latest'
+            artifactName: 'drop.TestTemplate6.Migrations'
+            project: '$(adoProject)'
+            downloadPath: '$(Pipeline.Workspace)/drop/TestTemplate6.Migrations'
+
+        - task: AzureCLI@2
+          displayName: 'Deploy Bicep'
+          name: 'bicepOutput'
+          inputs:
+            azureSubscription: 'AzureConnection'
+            scriptType: pscore
+            scriptLocation: inlineScript
+            useGlobalConfig: false
+            inlineScript: |
+              $jsonResultRg = az deployment sub create --location $(LOCATION) --template-file ./deployment/resource-group.bicep --parameters environment=$(ENVIRONMENT) projectName=$(PROJECT_NAME) location=$(LOCATION) | ConvertFrom-Json
+              $resourceGroupName = $jsonResultRg.properties.outputs.resourceGroupName.value
+              Write-Host "##vso[task.setvariable variable=resourceGroupName;isoutput=true]$resourceGroupName"
+              $jsonResultAll = az deployment group create --resource-group $resourceGroupName --template-file ./deployment/iac.bicep --parameters environment=$(ENVIRONMENT) projectName=$(PROJECT_NAME) db_user=$(DB_USER) db_password=$(DB_PASSWORD) | ConvertFrom-Json
+              $appServiceWebName = $jsonResultAll.properties.outputs.appServiceWebName.value
+              Write-Host "##vso[task.setvariable variable=appServiceWebName;isoutput=true]$appServiceWebName"
+              $dbConnection = $jsonResultAll.properties.outputs.dbConnection.value
+              Write-Host "##vso[task.setvariable variable=dbConnection;isoutput=true]$dbConnection"
+
+        - script: dotnet $(Pipeline.Workspace)/drop/TestTemplate6.Migrations/TestTemplate6.Migrations.dll "$(bicepOutput.dbConnection)" "$(DB_USER)" "$(DB_PASSWORD)" "$(Pipeline.Workspace)/drop/TestTemplate6.Migrations"
+          displayName: 'Migrate database'
+
+        - task: AzureWebApp@1
+          displayName: 'Deploy TestTemplate6.Api to App Service'
+          inputs:
+            azureSubscription: 'AzureConnection'
+            appType: 'webAppLinux'
+            appName: '$(bicepOutput.appServiceWebName)'
+            resourceGroupName: '$(bicepOutput.resourceGroupName)'
+            package: '$(Pipeline.Workspace)/drop/TestTemplate6.Api/**/*.zip'
+            runtimeStack: 'DOTNETCORE|6.0'

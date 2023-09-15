@@ -1,0 +1,11 @@
+version: '3.7'
+
+services:
+  testtemplate6.migrations:
+    # image: ${DOCKER_REGISTRY-}testtemplate6sql
+    env_file: .env
+    build:
+      context: .
+      dockerfile: src/TestTemplate6.Migrations/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
