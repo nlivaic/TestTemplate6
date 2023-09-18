@@ -3,13 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32516.85
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nginx", "nginx", "{B1B5AD5F-A085-41BE-9A56-B1CB403C311C}"
-	ProjectSection(SolutionItems) = preProject
-		nginx\api-local.testtemplate6.conf = nginx\api-local.testtemplate6.conf
-		nginx\nginx.Dockerfile = nginx\nginx.Dockerfile
-		nginx\nginx.local.conf = nginx\nginx.local.conf
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sql", "sql", "{11964691-E1D7-48AF-B5F5-DE744584AF5D}"
 	ProjectSection(SolutionItems) = preProject
 		sql\InitializeTestTemplate6Db.sql = sql\InitializeTestTemplate6Db.sql
