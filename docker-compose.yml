@@ -6,27 +6,13 @@ volumes:
   secrets:
 
 services:
-  reverseproxy:
-    ports:
-      - "44395:44395"
-    build:
-      context: .
-      # NOTE!!!
-      # Even though we keep nginx.Dockerfile inside /nginx solution folder,
-      # docker-compose tool is not aware of it since it is only a Visual Studio construct.
-      # On the filesystem nginx.Dockerfile is on the same level as docker-compose.yml
-      dockerfile: nginx/nginx.Dockerfile
-    networks:
-      testtemplate6net:
-        aliases:
-          - "api-local.testtemplate6.com"
   testtemplate6.api:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5000
     env_file: .env
-    #ports:
-    #  - "5000:5000"
+    ports:
+      - "5000:5000"
     build:
       context: .
       dockerfile: src/TestTemplate6.Api/Dockerfile
