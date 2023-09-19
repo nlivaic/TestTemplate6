@@ -87,13 +87,13 @@ jobs:
               $jsonResultRg = az deployment sub create --location $(LOCATION) --template-file ./deployment/resource-group.bicep --parameters environment=$(ENVIRONMENT) projectName=$(PROJECT_NAME) location=$(LOCATION) | ConvertFrom-Json
               $resourceGroupName = $jsonResultRg.properties.outputs.resourceGroupName.value
               Write-Host "##vso[task.setvariable variable=resourceGroupName;isoutput=true]$resourceGroupName"
-              $jsonResultAll = az deployment group create --resource-group $resourceGroupName --template-file ./deployment/iac.bicep --parameters environment=$(ENVIRONMENT) projectName=$(PROJECT_NAME) db_user=$(DB_USER) db_password=$(DB_PASSWORD) | ConvertFrom-Json
+              $jsonResultAll = az deployment group create --resource-group $resourceGroupName --template-file ./deployment/iac.bicep --parameters environment=$(ENVIRONMENT) projectName=$(PROJECT_NAME) db_user=$(DB_ADMIN_USER) db_password=$(DB_ADMIN_PASSWORD) db_admin=$(DB_ADMIN) db_admin_password=$(DB_ADMIN_PASSWORD) | ConvertFrom-Json
               $appServiceWebName = $jsonResultAll.properties.outputs.appServiceWebName.value
               Write-Host "##vso[task.setvariable variable=appServiceWebName;isoutput=true]$appServiceWebName"
               $dbConnection = $jsonResultAll.properties.outputs.dbConnection.value
               Write-Host "##vso[task.setvariable variable=dbConnection;isoutput=true]$dbConnection"
 
-        - script: dotnet $(Pipeline.Workspace)/drop/TestTemplate6.Migrations/TestTemplate6.Migrations.dll "$(bicepOutput.dbConnection)" "$(DB_USER)" "$(DB_PASSWORD)" "$(Pipeline.Workspace)/drop/TestTemplate6.Migrations"
+        - script: dotnet $(Pipeline.Workspace)/drop/TestTemplate6.Migrations/TestTemplate6.Migrations.dll "$(bicepOutput.dbConnection)" "$(DB_ADMIN)" "$(DB_ADMIN_PASSWORD)" "$(Pipeline.Workspace)/drop/TestTemplate6.Migrations"
           displayName: 'Migrate database'
 
         - task: AzureWebApp@1
