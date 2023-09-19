@@ -1,5 +1,8 @@
 param environment string
 param projectName string
+param db_admin string
+@secure()
+param db_admin_password string
 param db_user string
 @secure()
 param db_password string
@@ -35,6 +38,8 @@ var service_bus_RootManageSharedAccessKey_name = 'RootManageSharedAccessKey'
 var service_bus_ReadWritePolicy_name = 'ReadWritePolicy'
 
 var db_connection_string_env_var_name = 'TestTemplate6DbConnection'
+var db_admin_env_var_name = 'DB_ADMIN'
+var db_admin_password_env_var_name = 'DB_ADMIN_PASSWORD'
 var db_user_env_var_name = 'DB_USER'
 var db_password_env_var_name = 'DB_PASSWORD'
 var applicationinsights_connection_string_env_var_name = 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -44,8 +49,8 @@ resource sqlserver 'Microsoft.Sql/servers@2022-11-01-preview' = {
   name: sqlserver_name
   location: location
   properties: {
-    administratorLogin: db_user
-    administratorLoginPassword: db_password
+    administratorLogin: db_admin
+    administratorLoginPassword: db_admin_password
     version: '12.0'
     minimalTlsVersion: '1.2'
     publicNetworkAccess: 'Enabled'
